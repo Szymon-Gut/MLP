@@ -38,7 +38,7 @@ class Softmax(ActivationFunction):
             return np.exp(x) / (np.sum(np.exp(x), axis=1).reshape(
                 (x.shape[0], 1)) @ np.ones((1, x.shape[1])))
     
-    def derivative(self, x): # Best implementation (VERY FAST)
+    def derivative(self, x): 
         s = self.calculate(x).T
         a = np.eye(s.shape[-1])
         temp1 = np.zeros((s.shape[0], s.shape[1], s.shape[1]),dtype=np.float32)
