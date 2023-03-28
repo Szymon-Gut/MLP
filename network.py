@@ -68,13 +68,12 @@ class NN:
         delta['biases'].insert(0, -errors[0])
         return delta
 
-
     def convert_to_numpy_array(self, x_train, y_train, x_test, y_test):
         if x_test is None or y_test is None:
             return np.reshape(np.array(x_train), (-1, self.input_shape[1])), \
                    np.reshape(np.array(y_train), (-1, y_train.shape[1])), None, None
         else:
-            return np.reshape(np.array(x_train), (-1, self.input_shape[1])),\
+            return np.reshape(np.array(x_train), (-1, self.input_shape[1])), \
                    np.reshape(np.array(y_train), (-1, y_train.shape[1])), \
                    np.reshape(np.array(x_test), (-1, self.input_shape[1])), \
                    np.reshape(np.array(y_test), (-1, y_test.shape[1]))
@@ -103,32 +102,34 @@ class NN:
                 i] + dict2_multiplier * dict2['biases'][i]
         return d_sum
 
-    def print_results(self, epoch):
+    def print_results(self, epoch, metric_and_loss):
         print(f'Epoch number {epoch}/{self.n_epochs}')
-        metric_name = self.metric.__name__
-        print(f'Loss on training set: '
-              f'{round(self.loss.calculate(self.y_train, self.predict(self.x_train)),2)}',
-              end=' ')
+        metric_name = self.metric.__class__.__name__
+        if metric_and_loss:
+            print(f'Loss on training set: '
+                f'{round(self.loss.calculate(self.y_train, self.predict(self.x_train)), 2)}',
+                end=' ')
         print(f'{metric_name} on training set: '
-              f'{round(self.metric(self.y_train, self.predict(self.x_train)),2)}', end='')
+              f'{round(self.metric.calculate(self.y_train, self.predict(self.x_train)), 2)}', end=' ')
         if self.x_test is not None:
-            print(f', loss on test set: '
-                  f'{round(self.loss.calculate(self.y_test, self.predict(self.x_test)),2)}',
-                  end=' ')
+            if metric_and_loss:
+                print(f', loss on test set: '
+                    f'{round(self.loss.calculate(self.y_test, self.predict(self.x_test)), 2)}',
+                    end=' ')
             print(f'{metric_name} on test set: '
-                  f'{round(self.metric(self.y_test, self.predict(self.x_test)),2)}')
-            self.history['train'].append(round(self.metric(self.y_train, self.predict(self.x_train)),2))
-            self.history['test'].append(round(self.metric(self.y_test, self.predict(self.x_test)),2))
-            
+                  f'{round(self.metric.calculate(self.y_test, self.predict(self.x_test)), 2)}')
+            self.history['train'].append(round(self.metric.calculate(self.y_train, self.predict(self.x_train)), 2))
+            self.history['test'].append(round(self.metric.calculate(self.y_test, self.predict(self.x_test)), 2))
+
     def generate_batches(self):
         np.random.shuffle(self.indices)
         indices_permutation = np.split(self.indices,
                                        [i * self.batch_size for i in
-                                       range(1, self.n // self.batch_size)])
+                                        range(1, self.n // self.batch_size)])
         return indices_permutation
 
     def fit(self, x_train, y_train, batch_size, n_epochs, learning_rate=0.003,
-            x_test=None, y_test=None, loss=None, metric=None, verbose_step=10):
+            x_test=None, y_test=None, loss=None, metric=None, verbose_step=10, metric_and_loss = False):
 
         self.x_train, self.y_train, self.x_test, self.y_test = self.convert_to_numpy_array(
             x_train, y_train, x_test, y_test)
@@ -143,7 +144,7 @@ class NN:
         epoch = 1
         while epoch <= self.n_epochs:
             batches = self.generate_batches()
-            
+
             for batch in batches:
                 self.delta_weights = self.initialize_dict()
                 for j in range(self.batch_size):
@@ -158,12 +159,12 @@ class NN:
 
                     self.delta_weights = self.sum_dicts(
                         dict1=self.delta_weights, dict2=delta,
-                        dict2_multiplier=self.learning_rate)
+                        dict2_multiplier=self.learning_rate/self.batch_size)
 
                 self.update_layers()
 
             if epoch % verbose_step == 0:
-                self.print_results(epoch)
+                self.print_results(epoch, metric_and_loss)
             epoch += 1
 
     def propagate_forward(self, x):

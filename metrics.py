@@ -25,10 +25,13 @@ class Cross_entropy(Loss):
 
     def derivative(self, y_true, y_pred):
         return (1 - y_true) / (1 - y_pred) - y_true / y_pred
+    
 
-
-def f_score(y_true, y_pred):
-    y_pred = np.argmax(y_pred, axis=1)
-    y_true = np.argmax(y_true, axis=1)
-    return f1_score(y_true, y_pred, average='micro')
+class F_score(Loss):
+    def calculate(self, y_true, y_pred):
+        y_pred = np.argmax(y_pred, axis=1)
+        y_true = np.argmax(y_true, axis=1)
+        return f1_score(y_true, y_pred, average='micro')
+    def derivative(self, y_true, y_pred):
+        pass
 

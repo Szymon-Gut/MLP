@@ -15,10 +15,10 @@ class ActivationFunction:
 class Relu(ActivationFunction):
 
     def calculate(self, x):
-        return max(0, x)
+        return np.where(x > 0, x, 0)
 
     def derivative(self, x):
-        return 0 if x < 0 else 1
+        return np.where(x > 0, 1, 0)
 
     def error(self, error, derivative):
         return np.multiply(error, derivative)
