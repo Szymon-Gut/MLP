@@ -68,6 +68,23 @@ class NN:
         delta['biases'].insert(0, -errors[0])
         return delta
 
+    def propagate_backwards_with_regularization(self, y_true, x, lambd=0.05):
+        delta = {'weights': [], 'biases': []}
+
+        errors = self.calculate_errors(y_true)
+
+        for i in range(self.layers_num - 1, 0, -1):
+            l1 = lambd * np.sign(self.layers[i].weights)
+            delta['weights'].insert(0,
+                                    -self.layers[i - 1].output @ errors[i].T - l1)
+            delta['biases'].insert(0, -errors[i])
+
+        l1 = lambd * np.sign(self.layers[0].weights)
+        delta['weights'].insert(0,
+                               -x @ errors[0].T - l1)
+        delta['biases'].insert(0, -errors[0])
+        return delta
+    
     def convert_to_numpy_array(self, x_train, y_train, x_test, y_test):
         if x_test is None or y_test is None:
             return np.reshape(np.array(x_train), (-1, self.input_shape[1])), \
@@ -129,7 +146,7 @@ class NN:
         return indices_permutation
 
     def fit(self, x_train, y_train, batch_size, n_epochs, learning_rate=0.003,
-            x_test=None, y_test=None, loss=None, metric=None, verbose_step=10, metric_and_loss = False):
+            x_test=None, y_test=None, loss=None, metric=None, verbose_step=10, stop_treshold=3, regularization_rate = 0, stop_action = True, metric_and_loss = False):
 
         self.x_train, self.y_train, self.x_test, self.y_test = self.convert_to_numpy_array(
             x_train, y_train, x_test, y_test)
@@ -153,9 +170,10 @@ class NN:
                     y = y_train[idx]
                     self.propagate_forward(np.reshape(x, (-1, 1)))
 
-                    delta = self.propagate_backwards(
+                    delta = self.propagate_backwards_with_regularization(
                         y_true=np.reshape(y, (-1, 1)),
-                        x=np.reshape(x, (-1, 1)))
+                        x=np.reshape(x, (-1, 1)),
+                        lambd=regularization_rate)
 
                     self.delta_weights = self.sum_dicts(
                         dict1=self.delta_weights, dict2=delta,
@@ -166,7 +184,33 @@ class NN:
             if epoch % verbose_step == 0:
                 self.print_results(epoch, metric_and_loss)
             epoch += 1
-
+            
+            if self.early_stop(epoch, verbose_step, stop_treshold, stop_action):
+                break
+            
+    def early_stop(self, epoch, verbose_step, stop_treshold, stop_action, patience = 20):
+        if not stop_action:
+            return False
+        
+        if epoch  > verbose_step * (patience+1):
+            num_epochs_without_improvement = 0
+            loss_before = self.history['test'][-patience]
+            metric_name = self.metric.__class__.__name__
+            if metric_name == "Mse":
+                for i in range(-1, -patience, -1):
+                    current_loss = self.history['test'][i]
+                    if current_loss >= loss_before + stop_treshold:
+                        num_epochs_without_improvement+=1
+            elif metric_name == "F_score":
+                for i in range(-1, -patience, -1):
+                    current_loss = self.history['test'][i]
+                    if current_loss <= loss_before + stop_treshold:
+                        num_epochs_without_improvement+=1
+            if num_epochs_without_improvement == patience-1:
+                return True
+            else:
+                return False
+                
     def propagate_forward(self, x):
         for i in range(0, self.layers_num):
             x = self.layers[i].calculate(x)
