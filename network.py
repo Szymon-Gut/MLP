@@ -6,6 +6,54 @@ from metrics import Mse, Cross_entropy
 
 
 class NN:
+    """
+    A class representing a feedforward neural network for training and testing.
+
+    This class allows building, training, and testing feedforward neural networks with customizable architecture,
+    activation functions, loss functions, and optimization algorithms.
+
+    Attributes:
+        batches (None or array): Batches of data.
+        y_test (None or array): Test labels.
+        x_test (None or array): Test data.
+        y_train (None or array): Training labels.
+        x_train (None or array): Training data.
+        delta_weights (None or dict): Delta weights for each layer.
+        input_shape (tuple): Shape of the input data.
+        layers_num (int): Number of layers in the network.
+        neurons_num (list): Number of neurons in each layer.
+        activations (list): Activation functions for each layer.
+        history (dict): Training history.
+
+    Args:
+        input_shape (tuple): The shape of the input data. The tuple should specify the number of samples and features.
+        neurons_num (list): A list specifying the number of neurons in each hidden layer. The length of the list
+            determines the number of hidden layers.
+        activations (list): A list of activation functions for each layer. Each activation function should be an
+            instance of a class implementing the activation function interface.
+        seed (int, optional): Random seed for reproducibility.
+
+    Examples:
+        # Import necessary libraries.
+        >>> from network import NN
+        >>> import pandas as pd
+        >>> from activation_functions import Sigmoid, Softmax
+        >>> from metrics import *
+        >>> from sklearn.model_selection import train_test_split
+
+        # Generate or load data.
+        >>> data = pd.read_csv('data.csv')
+
+        # Split the data into training and test sets.
+        >>> x_train, x_test, y_train, y_test = train_test_split(data.drop(columns=['target']), data['target'], test_size=0.2)
+
+        # Create a neural network with 2 hidden layers and 10 neurons in each layer.
+        >>> nn = NN(input_shape=data.shape, activations=[Sigmoid(), Sigmoid(), Softmax()], neurons_num=[10, 10, 2], seed=123)
+
+        # Train the neural network.
+        >>> nn.fit(x_train, y_train, batch_size=32, n_epochs=340, learning_rate=0.003, loss=Cross_entropy(), metric=f_score, x_test=x_test, y_test=y_test, verbose_step=10)
+    """
+    
     def __init__(self, input_shape, neurons_num, activations, seed=123):
         self.batches = None
         self.y_test = None
@@ -146,7 +194,45 @@ class NN:
         return indices_permutation
 
     def fit(self, x_train, y_train, batch_size, n_epochs, learning_rate=0.003,
-            x_test=None, y_test=None, loss=None, metric=None, verbose_step=10, stop_treshold=3, regularization_rate = 0, stop_action = True, metric_and_loss = False):
+            x_test=None, y_test=None, loss=None, metric=None, verbose_step=10, stop_treshold=3, regularization_rate = 0, stop_action = True, patience = 20, metric_and_loss = False):
+        """
+        Trains the neural network on the given training data.
+
+        Args:
+            x_train: Input training data.
+            y_train: Target training labels.
+            batch_size: Number of samples per gradient update.
+            n_epochs: Number of epochs to train the model.
+            learning_rate: Learning rate for the optimization algorithm.
+            x_test: Input test data.
+            y_test: Target test labels.
+            loss: Loss function to optimize during training.
+            metric: Evaluation metric to monitor during training.
+            verbose_step: Frequency of printing training progress.
+            stop_treshold: The threshold value used for early stopping based on the chosen metric. If the difference between the metric value of the current epoch and the metric value of the previous epoch is less than or equal to `stop_treshold`, the epoch is considered to not show improvement, triggering early stopping.
+            regularization_rate: Rate of regularization applied during training.
+            stop_action: Flag indicating whether to perform early stopping or not.
+            patience: Number of epochs to wait for improvement before stopping the training process.
+            metric_and_loss: Flag indicating whether to print both loss and metric during training.
+
+        Returns:
+            None
+
+        Examples:
+            # Import necessary libraries.
+            >>> from network import NN
+            >>> import pandas as pd
+            >>> from activation_functions import Sigmoid, Softmax
+            >>> from metrics import *
+            >>> from sklearn.model_selection import train_test_split
+
+            # Train the neural network with default parameters.
+            >>> nn.fit(x_train, y_train, batch_size=32, n_epochs=10)
+
+            # Train the neural network with customized parameters and early stopping enabled.
+            >>> nn.fit(x_train, y_train, batch_size=32, n_epochs=10, learning_rate=0.001,
+            ...        x_test=x_test, y_test=y_test, loss=Mse(), metric=Mse(), stop_action=True)
+        """
 
         self.x_train, self.y_train, self.x_test, self.y_test = self.convert_to_numpy_array(
             x_train, y_train, x_test, y_test)
@@ -185,7 +271,7 @@ class NN:
                 self.print_results(epoch, metric_and_loss)
             epoch += 1
             
-            if self.early_stop(epoch, verbose_step, stop_treshold, stop_action):
+            if self.early_stop(epoch, verbose_step, stop_treshold, stop_action, patience):
                 break
             
     def early_stop(self, epoch, verbose_step, stop_treshold, stop_action, patience = 20):
